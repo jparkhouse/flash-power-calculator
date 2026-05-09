@@ -47,7 +47,7 @@ export function calculateApertureFlashPowerPairs(
 		const rawAperture = adjustedGuideNumber / distance;
 
 		// skip over values that are out of bounds
-		if (rawAperture < 1.3 || rawAperture > 26) {
+		if (rawAperture < allApertures[0] || rawAperture > allApertures[allApertures.length - 1]) {
 			continue;
 		}
 
@@ -77,42 +77,15 @@ export function calculateApertureFlashPowerPairs(
 }
 
 function getClosestAperture(rawAperture: number): Aperture {
-	let min = 0;
-	let max = allApertures.length;
-	let search = Math.floor(allApertures.length / 2);
-	while (true) {
-		const [currentAperture, nextAperture] =
-			search >= allApertures.length - 1
-				? [allApertures[search - 1], allApertures[search]]
-				: [allApertures[search], allApertures[search + 1]];
-		// three cases:
-		// greater than
-		// less than
-		// between two values (and closest to one of them)
-
-		if (rawAperture > currentAperture && rawAperture < nextAperture) {
-			const fromCurrentAperture = calculateApertureOffset(currentAperture, rawAperture);
-			const toNextAperture = calculateApertureOffset(rawAperture, nextAperture);
-
-			if (fromCurrentAperture.magnitude < toNextAperture.magnitude) {
-				return currentAperture;
-			} else {
-				return nextAperture;
-			}
-		}
-
-		if (rawAperture > currentAperture) {
-			min = search;
-		} else {
-			max = search;
-		}
-
-		search = Math.floor(min + max / 2);
-	}
+	// find the first aperture value that exceeds or meets rawAperture, limited to largest value
+	// works well since allApertures is sorted ascending
+	return allApertures.find((a) => a >= rawAperture) ?? allApertures[allApertures.length - 1];
 }
 
 function getFlashPowerWithOffsetFromRFP(rfp: number): FlashPowerWithOffset {
 	// handle the full power case to not deal with rounding shenanigans
+	// 0.933 is 1/2 + 0.9, so anything greater should just be clamped at
+	// 1/1
 	if (rfp > 0.933) {
 		return {
 			power: 1,
@@ -143,20 +116,7 @@ function calculateRFP(aperture: number, distance: number, fullPowerGuideNumber: 
 	return pow * pow;
 }
 
-type Offset = {
-	magnitude: number;
-	sign: boolean;
-};
-
 export type FlashPowerWithOffset = {
 	power: PowerStep;
 	offset: number;
 };
-
-function calculateApertureOffset(aperture1: number, aperture2: number): Offset {
-	const distance = aperture1 - aperture2;
-	return {
-		magnitude: Math.abs(distance),
-		sign: distance >= 0
-	};
-}
